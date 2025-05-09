@@ -3,6 +3,7 @@ package com.bioinformatics.bioinformatics.controller;
 import com.bioinformatics.bioinformatics.Tool;
 import com.bioinformatics.bioinformatics.model.Gene;
 import com.bioinformatics.bioinformatics.model.MiRNA;
+import com.bioinformatics.bioinformatics.model.Pathway;
 import com.bioinformatics.bioinformatics.repository.MiRNARepository;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
@@ -48,6 +49,11 @@ public class MiRNAController {
         return ResponseEntity.ok(result);
     }
 
+    @GetMapping("/gene/pathways")
+    public ResponseEntity<List<Map<String, Object>>> getPathwaysByGene(@RequestParam String name) {
+        List<Map<String, Object>> result = repo.findPathwaysByGeneName(name);
+        return ResponseEntity.ok(result);
+    }
 
 
 }
