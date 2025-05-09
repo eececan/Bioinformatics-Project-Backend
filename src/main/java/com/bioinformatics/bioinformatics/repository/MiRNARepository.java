@@ -17,9 +17,10 @@ public interface MiRNARepository extends Neo4jRepository<MiRNA, Long> {
     List<MiRNA> findByName(String name);
 
     @Query("""
-    MATCH (m:MiRNA)-[r]->(t:Target)
+    MATCH (m:microRNA)-[r]->(t:Target)
     WHERE m.name = $name AND type(r) IN ['RNA22', 'TargetScan', 'PicTar', 'miRTarBase']
-    RETURN m.name AS mirna, collect({gene: t.name, tool: type(r), score: r.score}) AS predictions
-    """)
-    Map<String, Object> getPredictions(@Param("name") String name);
+    RETURN collect({gene: t.name, tool: type(r), score: r.score})
+""")
+    List<Map<String, Object>> getPredictions(@Param("name") String name);
+
 }

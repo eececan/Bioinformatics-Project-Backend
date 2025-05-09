@@ -28,18 +28,26 @@ public class MiRNAController {
     // New endpoint for predictions
     @GetMapping("/mirna/predictions")
     public ResponseEntity<List<Gene>> getPredictions(@RequestParam String name) {
-        Map<String, Object> resultFromRepo = repo.getPredictions(name);
+        List<Map<String, Object>> predictions = repo.getPredictions(name);
 
-        // Extract predictions from query result
-        //List<Map<String, Object>> predictions = (List<Map<String, Object>>) resultFromRepo.get("predictions");
+        if (predictions == null || predictions.isEmpty()) {
+            return ResponseEntity.ok(new ArrayList<>());
+        }
 
-        var predictions = (List<Map<String, Object>>) resultFromRepo.get("predictions");
-        var result = new ArrayList<Gene>();
-        for(var p: predictions)
-        {
-            result.add(new Gene(null, (String) p.get("gene"), Tool.valueOf((String) (p.get("tool"))),(Double) p.get("score")));
+        List<Gene> result = new ArrayList<>();
+        for (Map<String, Object> p : predictions) {
+            result.add(new Gene(
+                    null,
+                    (String) p.get("gene"),
+                    Tool.valueOf((String) p.get("tool")),
+                    Double.parseDouble((String) p.get("score"))
+
+            ));
         }
 
         return ResponseEntity.ok(result);
     }
+
+
+
 }
