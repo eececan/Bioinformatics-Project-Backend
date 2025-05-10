@@ -1,18 +1,15 @@
 package com.bioinformatics.bioinformatics.controller;
 
-import com.bioinformatics.bioinformatics.Tool;
-import com.bioinformatics.bioinformatics.model.Gene;
+import com.bioinformatics.bioinformatics.model.GenePredictionDTO;
 import com.bioinformatics.bioinformatics.model.MiRNA;
-import com.bioinformatics.bioinformatics.model.Pathway;
+import com.bioinformatics.bioinformatics.model.Prediction;
 import com.bioinformatics.bioinformatics.repository.MiRNARepository;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
@@ -28,25 +25,24 @@ public class MiRNAController {
 
     // New endpoint for predictions
     @GetMapping("/mirna/predictions")
-    public ResponseEntity<List<Gene>> getPredictions(@RequestParam String name) {
-        List<Map<String, Object>> predictions = repo.getPredictions(name);
+    public ResponseEntity<Prediction> getPredictions(@RequestParam String name) {
+        List<GenePredictionDTO> raw = repo.getPredictions(name);
 
-        if (predictions == null || predictions.isEmpty()) {
-            return ResponseEntity.ok(new ArrayList<>());
+        if (raw.isEmpty()) {
+            return ResponseEntity.ok(new Prediction(name, new Prediction.PredictionValues[]{}));
         }
 
-        List<Gene> result = new ArrayList<>();
-        for (Map<String, Object> p : predictions) {
-            result.add(new Gene(
-                    null,
-                    (String) p.get("gene"),
-                    Tool.valueOf((String) p.get("tool")),
-                    Double.parseDouble((String) p.get("score"))
+        List<Prediction.PredictionValues> vals = raw.stream()
+                .map(p -> new Prediction.PredictionValues(
+                        p.gene(),
+                        p.tools().toArray(new String[0]),
+                        p.pathways().toArray(new String[0])
+                ))
+                .toList();
 
-            ));
-        }
-
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(
+                new Prediction(name, vals.toArray(new Prediction.PredictionValues[0]))
+        );
     }
 
     @GetMapping("/gene/pathways")
@@ -54,6 +50,8 @@ public class MiRNAController {
         List<Map<String, Object>> result = repo.findPathwaysByGeneName(name);
         return ResponseEntity.ok(result);
     }
+
+
 
 
 }

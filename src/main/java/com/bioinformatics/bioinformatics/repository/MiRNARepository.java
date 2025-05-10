@@ -1,8 +1,7 @@
 package com.bioinformatics.bioinformatics.repository;
 
-import com.bioinformatics.bioinformatics.model.Gene;
+import com.bioinformatics.bioinformatics.model.GenePredictionDTO;
 import com.bioinformatics.bioinformatics.model.MiRNA;
-import com.bioinformatics.bioinformatics.model.Pathway;
 import org.springframework.data.neo4j.repository.Neo4jRepository;
 import org.springframework.data.neo4j.repository.query.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,24 +9,27 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
 
 @Repository
 public interface MiRNARepository extends Neo4jRepository<MiRNA, Long> {
     List<MiRNA> findByName(String name);
 
     @Query("""
-    MATCH (m:microRNA)-[r]->(t:Target)
-    WHERE m.name = $name AND type(r) IN ['RNA22', 'TargetScan', 'PicTar', 'miRTarBase']
-    RETURN collect({gene: t.name, tool: type(r), score: r.score})
-""")
-    List<Map<String, Object>> getPredictions(@Param("name") String name);
+    MATCH (m:miRNA {name: $miRNAName})-[r:TARGETS]->(g:Gene)
+    OPTIONAL MATCH (g)-[:PARTICIPATES_IN]->(p:Pathway)
+    WITH
+      g.name     AS gene,
+      collect(DISTINCT r.tool)      AS tools,
+      collect(DISTINCT p.name)      AS pathways
+    RETURN gene, tools, pathways
+    ORDER BY gene
+    """)
+    List<GenePredictionDTO> getPredictions(@Param("miRNAName") String miRNAName);
 
     @Query("""
-    MATCH (g:Target {name: $name})-[:PART_OF]->(p:Pathway)
+    MATCH (g:Targets {name: $name})-[:PART_OF]->(p:Pathway)
     RETURN collect({id: p.id, name: p.name})
-""")
+    """)
     List<Map<String, Object>> findPathwaysByGeneName(@Param("name") String name);
 
 
