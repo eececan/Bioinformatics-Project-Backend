@@ -2,10 +2,10 @@ package com.bioinformatics.bioinformatics.model;
 
 
 public class Prediction {
-    private String mirna;
+    private String[] mirna;
     private PredictionValues[] predictions;
 
-    public Prediction(String miRna, PredictionValues[] predictions) {
+    public Prediction(String[] miRna, PredictionValues[] predictions) {
         this.mirna = miRna;
         this.predictions = predictions;
     }
@@ -16,7 +16,7 @@ public class Prediction {
         return predictions;
     }
 
-    public String getMirna() {
+    public String[] getMirna() {
         return mirna;
     }
 
@@ -24,7 +24,7 @@ public class Prediction {
         this.predictions = predictions;
     }
 
-    public void setMirna(String mirna) {
+    public void setMirna(String[] mirna) {
         this.mirna = mirna;
     }
 
