@@ -4,10 +4,12 @@ package com.bioinformatics.bioinformatics.model;
 public class Prediction {
     private String[] mirna;
     private PredictionValues[] predictions;
+    private double searchTimeSeconds;
 
-    public Prediction(String[] miRna, PredictionValues[] predictions) {
+    public Prediction(String[] miRna, PredictionValues[] predictions, double searchTimeSeconds) {
         this.mirna = miRna;
         this.predictions = predictions;
+        this.searchTimeSeconds = searchTimeSeconds;
     }
 
     public Prediction() {}
@@ -20,12 +22,20 @@ public class Prediction {
         return mirna;
     }
 
+    public double getSearchTimeSeconds() {
+        return searchTimeSeconds;
+    }
+
     public void setPredictions(PredictionValues[] predictions) {
         this.predictions = predictions;
     }
 
     public void setMirna(String[] mirna) {
         this.mirna = mirna;
+    }
+
+    public void setSearchTimeSeconds(double searchTimeSeconds) {
+        this.searchTimeSeconds = searchTimeSeconds;
     }
 
     public static class PredictionValues

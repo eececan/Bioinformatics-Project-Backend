@@ -16,6 +16,7 @@ public class PredictionLogger implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
+        var b = cont.getPastSearches();
         String miRNAName = (args.length > 0)? args[0] : "hsa-miR-200c-3p";
         var a = cont.getPredictions(new String[]{"miR-1", "miR-2"}, new String[]{"ToolA", "ToolB", "ToolC"}, "UNION", "MAJORITY");
         System.out.println(a);
