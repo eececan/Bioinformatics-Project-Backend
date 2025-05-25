@@ -16,29 +16,31 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
 public class MiRNAController {
     private static final Path SEARCH_LOG = Paths.get("previous_searches.txt");
+    private static final int MAX_SEARCH_RESULTS = 10;
 
     @Autowired
     private MiRNARepository miRNARepository;
 
-    @PostConstruct
-    public void init() {
+    private final LinkedList<Search> searches = init();
+
+    public synchronized LinkedList<Search> init() {
         try
         {
             if (Files.notExists(SEARCH_LOG)) {
                 Files.createFile(SEARCH_LOG);
             }
         }
-        catch (IOException e) {}
+        catch (IOException ignored) {}
 
+        var ps = getPastSearches();
+        return new LinkedList<>(ps==null || ps.getBody() == null ? new ArrayList<>() : ps.getBody());
     }
 
     /**
@@ -72,22 +74,49 @@ public class MiRNAController {
                                                         dto.pathways().toArray(new String[0])
                                                 )).toArray(Prediction.PredictionValues[]::new), durationInSeconds);
 
-        String entry = (new Search(miRNANames, tools, toolSelection, heuristic)).toString() + System.lineSeparator();
-        Files.writeString(SEARCH_LOG,
-                entry,
-                StandardOpenOption.APPEND);
+        try
+        {
+            saveSearch(new Search(miRNANames, tools, toolSelection, heuristic));
+        }
+        catch (IOException ignored) {}
 
         return ResponseEntity.ok(predictions);
     }
 
-    @GetMapping("/pastSearches")
-    public ResponseEntity<List<Search>> getPastSearches() throws IOException {
-        List<String> lines = Files.readAllLines(SEARCH_LOG, StandardCharsets.UTF_8);
-        List<Search> pastSearches = lines.stream()
-                .map(Search::parse)
-                .collect(Collectors.toList());
+    private synchronized void saveSearch(Search search) throws IOException {
+        searches.remove(search);
 
-        return ResponseEntity.ok(pastSearches);
+        searches.add(0, search);
+
+        if(searches.size() > MAX_SEARCH_RESULTS) {
+            searches.removeLast();
+        }
+
+        StringBuilder sb = new StringBuilder();
+
+        for(Search s : searches) {
+            sb.append(s.toString()).append(System.lineSeparator());
+        }
+
+        Files.writeString(SEARCH_LOG, sb.toString());
+    }
+
+    @GetMapping("/pastSearches")
+    public ResponseEntity<List<Search>> getPastSearches() {
+        try
+        {
+            List<String> lines = Files.readAllLines(SEARCH_LOG, StandardCharsets.UTF_8);
+            List<Search> pastSearches = lines.stream()
+                    .map(Search::parse)
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(pastSearches);
+        }
+        catch (IOException e)
+        {
+            return ResponseEntity.ok(new ArrayList<>());
+        }
+
     }
 
     @GetMapping("/pathways")
@@ -95,7 +124,5 @@ public class MiRNAController {
         List<Map<String, Object>> pathways = miRNARepository.findPathwaysByGeneName(geneName);
         return ResponseEntity.ok(pathways);
     }
-
-
 
 }
