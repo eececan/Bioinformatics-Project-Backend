@@ -5,11 +5,15 @@ public class Prediction {
     private String[] mirna;
     private PredictionValues[] predictions;
     private double searchTimeSeconds;
+    private int geneCount;
+    private int pathwayCount;
 
-    public Prediction(String[] miRna, PredictionValues[] predictions, double searchTimeSeconds) {
+    public Prediction(String[] miRna, PredictionValues[] predictions, double searchTimeSeconds, int geneCount, int pathwayCount) {
         this.mirna = miRna;
         this.predictions = predictions;
         this.searchTimeSeconds = searchTimeSeconds;
+        this.geneCount = geneCount;
+        this.pathwayCount = pathwayCount;
     }
 
     public Prediction() {}
@@ -26,6 +30,14 @@ public class Prediction {
         return searchTimeSeconds;
     }
 
+    public int getGeneCount() {
+        return geneCount;
+    }
+
+    public int getPathwayCount() {
+        return pathwayCount;
+    }
+
     public void setPredictions(PredictionValues[] predictions) {
         this.predictions = predictions;
     }
@@ -36,6 +48,14 @@ public class Prediction {
 
     public void setSearchTimeSeconds(double searchTimeSeconds) {
         this.searchTimeSeconds = searchTimeSeconds;
+    }
+
+    public void setGeneCount(int geneCount) {
+        this.geneCount = geneCount;
+    }
+
+    public void setPathwayCount(int pathwayCount) {
+        this.pathwayCount = pathwayCount;
     }
 
     public static class PredictionValues

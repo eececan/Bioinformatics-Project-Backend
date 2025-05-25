@@ -5,7 +5,10 @@ import com.bioinformatics.bioinformatics.model.MiRNA;
 import com.bioinformatics.bioinformatics.model.Prediction;
 import com.bioinformatics.bioinformatics.model.Search;
 import com.bioinformatics.bioinformatics.repository.MiRNARepository;
+import com.bioinformatics.bioinformatics.service.PastSearchesService;
 import jakarta.annotation.PostConstruct;
+import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,26 +25,14 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api")
 public class MiRNAController {
-    private static final Path SEARCH_LOG = Paths.get("previous_searches.txt");
-    private static final int MAX_SEARCH_RESULTS = 10;
 
     @Autowired
     private MiRNARepository miRNARepository;
 
-    private final LinkedList<Search> searches = init();
+    @Autowired
+    private PastSearchesService pastSearchesService;
 
-    public synchronized LinkedList<Search> init() {
-        try
-        {
-            if (Files.notExists(SEARCH_LOG)) {
-                Files.createFile(SEARCH_LOG);
-            }
-        }
-        catch (IOException ignored) {}
 
-        var ps = getPastSearches();
-        return new LinkedList<>(ps==null || ps.getBody() == null ? new ArrayList<>() : ps.getBody());
-    }
 
     /**
      * @param miRNANames List of microRNA names to query.
@@ -64,60 +55,41 @@ public class MiRNAController {
                                             toolSelection,
                                             heuristic);
 
+        int geneCount;
+        int pathwayCount = 0;
+
+        ArrayList<Prediction.PredictionValues> predictionValues = new ArrayList<>();
+        if(rawPredictions==null || rawPredictions.isEmpty())
+        {
+            predictionValues = new ArrayList<>();
+            geneCount = 0;
+        }
+        else
+        {
+            for(var predictionDTO : rawPredictions) {
+                pathwayCount += predictionDTO.pathways().size();
+                predictionValues.add(new Prediction.PredictionValues(predictionDTO.gene(), predictionDTO.tools().toArray(new String[0]), predictionDTO.pathways().toArray(new String[0])));
+            }
+            geneCount = predictionValues.size();
+        }
+
         double durationInSeconds = (System.nanoTime() - startTime) / 1_000_000_000.0;
 
-        var predictions = rawPredictions == null || rawPredictions.isEmpty() ? new Prediction(miRNANames, new Prediction.PredictionValues[0], durationInSeconds):
-                                                new Prediction(miRNANames, rawPredictions.stream()
-                                                .map(dto -> new Prediction.PredictionValues(
-                                                        dto.gene(),
-                                                        dto.tools().toArray(new String[0]),
-                                                        dto.pathways().toArray(new String[0])
-                                                )).toArray(Prediction.PredictionValues[]::new), durationInSeconds);
+        Prediction prediction = new Prediction(miRNANames, predictionValues.toArray(Prediction.PredictionValues[]::new), durationInSeconds, geneCount, pathwayCount);
 
-        try
-        {
-            saveSearch(new Search(miRNANames, tools, toolSelection, heuristic));
-        }
-        catch (IOException ignored) {}
+        pastSearchesService.saveSearchAsync(new Search(miRNANames, tools, toolSelection, heuristic));
 
-        return ResponseEntity.ok(predictions);
+        return ResponseEntity.ok(prediction);
     }
 
-    private synchronized void saveSearch(Search search) throws IOException {
-        searches.remove(search);
 
-        searches.add(0, search);
-
-        if(searches.size() > MAX_SEARCH_RESULTS) {
-            searches.removeLast();
-        }
-
-        StringBuilder sb = new StringBuilder();
-
-        for(Search s : searches) {
-            sb.append(s.toString()).append(System.lineSeparator());
-        }
-
-        Files.writeString(SEARCH_LOG, sb.toString());
-    }
 
     @GetMapping("/pastSearches")
-    public ResponseEntity<List<Search>> getPastSearches() {
-        try
-        {
-            List<String> lines = Files.readAllLines(SEARCH_LOG, StandardCharsets.UTF_8);
-            List<Search> pastSearches = lines.stream()
-                    .map(Search::parse)
-                    .collect(Collectors.toList());
-
-            return ResponseEntity.ok(pastSearches);
-        }
-        catch (IOException e)
-        {
-            return ResponseEntity.ok(new ArrayList<>());
-        }
-
+    public synchronized ResponseEntity<List<Search>> getPastSearches() {
+        return ResponseEntity.ok(pastSearchesService.getPastSearches());
     }
+
+
 
     @GetMapping("/pathways")
     public ResponseEntity<List<Map<String, Object>>> getPathwaysByGene(@RequestParam("geneName") String geneName) {
