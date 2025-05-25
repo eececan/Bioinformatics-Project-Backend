@@ -35,7 +35,7 @@ public class MiRNAController {
 
 
     /**
-     * @param miRNANames List of microRNA names to query.
+     * @param mirnaNames List of microRNA names to query.
      * @param tools List of tool relationship types to consider.
      * @param toolSelection Strategy to filter predictions based on tools (UNION, INTERSECTION, AT_LEAST_TWO).
      * @param heuristic Heuristic for minimum number of miRNAs predicting a gene (INTERSECTION, MAJORITY).
@@ -43,14 +43,14 @@ public class MiRNAController {
      */
     @GetMapping("/predictions")
     public ResponseEntity<Prediction> getPredictions(
-            @RequestParam("miRNANames") String[] miRNANames,
+            @RequestParam("mirnaNames") String[] mirnaNames,
             @RequestParam("tools") String[] tools,
             @RequestParam("toolSelection") String toolSelection,
             @RequestParam("heuristic") String heuristic) throws IOException {
 
         long startTime = System.nanoTime();
         var rawPredictions = miRNARepository.getPredictions(
-                                            List.of(miRNANames),
+                                            List.of(mirnaNames),
                                             List.of(tools),
                                             toolSelection,
                                             heuristic);
@@ -75,9 +75,9 @@ public class MiRNAController {
 
         double durationInSeconds = (System.nanoTime() - startTime) / 1_000_000_000.0;
 
-        Prediction prediction = new Prediction(miRNANames, predictionValues.toArray(Prediction.PredictionValues[]::new), durationInSeconds, geneCount, pathwayCount);
+        Prediction prediction = new Prediction(mirnaNames, predictionValues.toArray(Prediction.PredictionValues[]::new), durationInSeconds, geneCount, pathwayCount);
 
-        pastSearchesService.saveSearchAsync(new Search(miRNANames, tools, toolSelection, heuristic));
+        pastSearchesService.saveSearchAsync(new Search(mirnaNames, tools, toolSelection, heuristic));
 
         return ResponseEntity.ok(prediction);
     }

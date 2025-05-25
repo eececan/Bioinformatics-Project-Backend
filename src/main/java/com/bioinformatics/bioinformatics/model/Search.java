@@ -1,47 +1,46 @@
 package com.bioinformatics.bioinformatics.model;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 public class Search {
-    private final String[] miRNANames;
-    private final String[] tools;
+    private final List<String> mirnaNames;
+    private final List<String> tools;
     private final String toolSelection;
     private final String heuristic;
 
-    public Search(String[] miRNANames, String[] tools, String toolSelection, String heuristic) {
-        this.miRNANames = miRNANames;
-        this.tools = tools;
+    public Search(String[] mirnaNames, String[] tools, String toolSelection, String heuristic) {
+        this.mirnaNames = Arrays.asList(mirnaNames);
+        this.tools = Arrays.asList(tools);
         this.toolSelection = toolSelection;
         this.heuristic = heuristic;
     }
 
-    public String getHeuristic() {
-        return heuristic;
+    public List<String> getmirnaNames() {
+        return mirnaNames;
+    }
+
+    public List<String> getTools() {
+        return tools;
     }
 
     public String getToolSelection() {
         return toolSelection;
     }
 
-    public String[] getMiRNANames() {
-        return miRNANames;
+    public String getHeuristic() {
+        return heuristic;
     }
 
-    public String[] getTools() {
-        return tools;
-    }
-
+    @Override
     public String toString() {
-        return String.join("|", miRNANames) + "|||" +
+        return String.join("|", mirnaNames) + "|||" +
                 String.join("|", tools) + "|||" +
                 toolSelection + "|||" + heuristic;
     }
 
     public static Search parse(String str) {
         String[] tokens = str.split("\\|\\|\\|");
+        if (tokens.length < 4) return null;
         return new Search(tokens[0].split("\\|"), tokens[1].split("\\|"), tokens[2], tokens[3]);
     }
 
@@ -50,23 +49,14 @@ public class Search {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Search other = (Search) o;
-
-        Set<String> thisMiRNAs = miRNANames != null ? new HashSet<>(Arrays.asList(miRNANames)) : null;
-        Set<String> otherMiRNAs = other.miRNANames != null ? new HashSet<>(Arrays.asList(other.miRNANames)) : null;
-        if (!Objects.equals(thisMiRNAs, otherMiRNAs)) return false;
-
-        Set<String> thisTools = tools != null ? new HashSet<>(Arrays.asList(tools)) : null;
-        Set<String> otherTools = other.tools != null ? new HashSet<>(Arrays.asList(other.tools)) : null;
-        if (!Objects.equals(thisTools, otherTools)) return false;
-
-        return Objects.equals(toolSelection, other.toolSelection)
-                && Objects.equals(heuristic, other.heuristic);
+        return new HashSet<>(mirnaNames).equals(new HashSet<>(other.mirnaNames)) &&
+                new HashSet<>(tools).equals(new HashSet<>(other.tools)) &&
+                Objects.equals(toolSelection, other.toolSelection) &&
+                Objects.equals(heuristic, other.heuristic);
     }
 
     @Override
     public int hashCode() {
-        Set<String> miRNASet = miRNANames != null ? new HashSet<>(Arrays.asList(miRNANames)) : null;
-        Set<String> toolSet = tools != null ? new HashSet<>(Arrays.asList(tools)) : null;
-        return Objects.hash(miRNASet, toolSet, toolSelection, heuristic);
+        return Objects.hash(new HashSet<>(mirnaNames), new HashSet<>(tools), toolSelection, heuristic);
     }
 }
