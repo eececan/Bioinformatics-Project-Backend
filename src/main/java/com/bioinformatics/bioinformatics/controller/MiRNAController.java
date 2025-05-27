@@ -46,7 +46,7 @@ public class MiRNAController {
             @RequestParam("mirnaNames") String[] mirnaNames,
             @RequestParam("tools") String[] tools,
             @RequestParam("toolSelection") String toolSelection,
-            @RequestParam("heuristic") String heuristic) throws IOException {
+            @RequestParam("heuristic") String heuristic) {
 
         long startTime = System.nanoTime();
         var rawPredictions = miRNARepository.getPredictions(
@@ -73,16 +73,51 @@ public class MiRNAController {
             geneCount = predictionValues.size();
         }
 
-        double durationInSeconds = (System.nanoTime() - startTime) / 1_000_000_000.0;
+        long durationInNanoSeconds = (System.nanoTime() - startTime);
 
-        Prediction prediction = new Prediction(mirnaNames, predictionValues.toArray(Prediction.PredictionValues[]::new), durationInSeconds, geneCount, pathwayCount);
+        Prediction prediction = new Prediction(mirnaNames, predictionValues.toArray(Prediction.PredictionValues[]::new),
+                durationToString(durationInNanoSeconds), geneCount, pathwayCount);
+
+        System.out.println(prediction.getSearchTime());
 
         pastSearchesService.saveSearchAsync(new Search(mirnaNames, tools, toolSelection, heuristic));
 
         return ResponseEntity.ok(prediction);
     }
 
+    private String durationToString(long durationInNanoSeconds) {
+        double actualDuration;
+        String durationUnit;
 
+        if(durationInNanoSeconds <= 0) {
+            return "0 ns";
+        }
+
+        int exponent = (int) Math.floor(Math.log10(durationInNanoSeconds));
+
+        if(exponent>5)
+        {
+            actualDuration = durationInNanoSeconds / 1000000000d;
+            durationUnit = "s";
+        }
+        else if(exponent>2)
+        {
+            actualDuration = durationInNanoSeconds / 1000000d;
+            durationUnit = "ms";
+        }
+        else if(exponent>0)
+        {
+            actualDuration = durationInNanoSeconds / 1000d;
+            durationUnit = "μs";
+        }
+        else
+        {
+            actualDuration = durationInNanoSeconds;
+            durationUnit = "ns";
+        }
+
+        return (Math.round(actualDuration * 1000)/1000d) + " " + durationUnit;
+    }
 
     @GetMapping("/pastSearches")
     public synchronized ResponseEntity<List<Search>> getPastSearches() {

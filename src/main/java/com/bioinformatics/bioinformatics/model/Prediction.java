@@ -4,14 +4,14 @@ package com.bioinformatics.bioinformatics.model;
 public class Prediction {
     private String[] mirna;
     private PredictionValues[] predictions;
-    private double searchTimeSeconds;
+    private String searchTime;
     private int geneCount;
     private int pathwayCount;
 
-    public Prediction(String[] miRna, PredictionValues[] predictions, double searchTimeSeconds, int geneCount, int pathwayCount) {
+    public Prediction(String[] miRna, PredictionValues[] predictions, String searchTime, int geneCount, int pathwayCount) {
         this.mirna = miRna;
         this.predictions = predictions;
-        this.searchTimeSeconds = searchTimeSeconds;
+        this.searchTime = searchTime;
         this.geneCount = geneCount;
         this.pathwayCount = pathwayCount;
     }
@@ -26,8 +26,8 @@ public class Prediction {
         return mirna;
     }
 
-    public double getSearchTimeSeconds() {
-        return searchTimeSeconds;
+    public String getSearchTime() {
+        return searchTime;
     }
 
     public int getGeneCount() {
@@ -46,8 +46,8 @@ public class Prediction {
         this.mirna = mirna;
     }
 
-    public void setSearchTimeSeconds(double searchTimeSeconds) {
-        this.searchTimeSeconds = searchTimeSeconds;
+    public void setSearchTime(String searchTime) {
+        this.searchTime = searchTime;
     }
 
     public void setGeneCount(int geneCount) {
