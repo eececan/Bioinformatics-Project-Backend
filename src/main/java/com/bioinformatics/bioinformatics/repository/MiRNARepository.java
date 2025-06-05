@@ -32,12 +32,13 @@ public interface MiRNARepository extends Neo4jRepository<MiRNA, Long> {
         DISTINCT
         {
           tool: type(r),
-          quality:
+          quality: toString(
             CASE
               WHEN r.experiments IS NOT NULL THEN r.experiments
-              WHEN r.pct_scores  IS NOT NULL THEN r.pct_scores
+              WHEN r.pct_scores IS NOT NULL  THEN r.pct_scores
               ELSE r.score
-            END,
+            END
+          ),
           mirna: m.name
         }
       )                                                        AS connections,
@@ -73,7 +74,7 @@ public interface MiRNARepository extends Neo4jRepository<MiRNA, Long> {
       pathways,
       connections
     ORDER BY gene
-        """)
+    """)
     List<GenePredictionDTO> getPredictions(
             @Param("miRNANames")    List<String> miRNANames,
             @Param("tools")         List<String> tools,
