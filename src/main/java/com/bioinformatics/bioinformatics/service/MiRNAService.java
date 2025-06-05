@@ -63,6 +63,12 @@ public class MiRNAService {
         {
             actualDuration = durationInNanoSeconds / 1000000000d;
             durationUnit = "s";
+
+            if(actualDuration>=60)
+            {
+                int actualDurationFloor = (int) Math.floor(actualDuration);
+                return actualDurationFloor/60 + " min " + actualDurationFloor%60 + " s";
+            }
         }
         else if(exponent>2)
         {

@@ -38,7 +38,14 @@ public interface MiRNARepository extends Neo4jRepository<MiRNA, Long> {
       size(mirnasWithPrediction)            AS foundCount,
       CASE
         WHEN toUpper($heuristic) = 'INTERSECTION' THEN size($miRNANames)
-        WHEN toUpper($heuristic) = 'MAJORITY'     THEN ceil(size($miRNANames) / 2.0)
+        WHEN toUpper($heuristic) = 'MAJORITY'
+          THEN
+            ceil(size($miRNANames) / 2.0)
+            +
+            CASE
+              WHEN size($miRNANames) % 2 = 0 THEN 1
+              ELSE 0
+            END
         ELSE 0
       END                                    AS requiredCount
     
