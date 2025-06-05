@@ -5,5 +5,6 @@ import java.util.List;
 public record GenePredictionDTO(
         String gene,
         List<String> tools,
-        List<String> pathways
+        List<String> pathways,
+        List<Connection> connections
 ) {}

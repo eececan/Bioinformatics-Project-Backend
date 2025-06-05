@@ -63,12 +63,14 @@ public class Prediction {
         private String gene;
         private String[] tools;
         private String[] pathways;
+        private Connection[] connections;
 
-        public PredictionValues(String gene, String[] tools, String[] pathways)
+        public PredictionValues(String gene, String[] tools, String[] pathways, Connection[] connections)
         {
             this.gene = gene;
             this.tools = tools;
             this.pathways = pathways;
+            this.connections = connections;
         }
 
         public PredictionValues() {}
@@ -83,6 +85,10 @@ public class Prediction {
 
         public String[] getPathways() {
             return pathways;
+        }
+
+        public Connection[] getConnections() {
+            return connections;
         }
     }
 }

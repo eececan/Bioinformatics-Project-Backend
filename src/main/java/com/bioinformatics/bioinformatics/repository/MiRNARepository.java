@@ -17,38 +17,45 @@ public interface MiRNARepository extends Neo4jRepository<MiRNA, Long> {
     @Query("""
     MATCH (m:microRNA)
     WHERE m.name IN $miRNANames
-    
+
     MATCH (m)-[r]->(t:Target)
     WHERE type(r) IN $tools
-    
+
     OPTIONAL MATCH (t)-[:PART_OF_PATHWAY]->(p:Pathway)
-    
+
     WITH
       t,
       t.name AS gene,
-      collect(DISTINCT type(r))      AS foundTools,
-      collect(DISTINCT p.name)       AS pathways,
-      collect(DISTINCT m.name)       AS mirnasWithPrediction
-    
+      collect(DISTINCT type(r))                                AS foundTools,
+      collect(DISTINCT p.name)                                 AS pathways,
+      collect(
+        DISTINCT
+        {
+          tool: type(r),
+          quality:
+            CASE
+              WHEN r.experiments IS NOT NULL THEN r.experiments
+              WHEN r.pct_scores  IS NOT NULL THEN r.pct_scores
+              ELSE r.score
+            END,
+          mirna: m.name
+        }
+      )                                                        AS connections,
+      collect(DISTINCT m.name)                                 AS mirnasWithPrediction
+
     WITH
       gene,
       foundTools,
-      [path IN pathways WHERE path IS NOT NULL] AS pathways,  // Remove nulls
+      [path IN pathways WHERE path IS NOT NULL]                AS pathways,
+      connections,
       mirnasWithPrediction,
-      size(mirnasWithPrediction)            AS foundCount,
+      size(mirnasWithPrediction)                               AS foundCount,
       CASE
         WHEN toUpper($heuristic) = 'INTERSECTION' THEN size($miRNANames)
-        WHEN toUpper($heuristic) = 'MAJORITY'
-          THEN
-            ceil(size($miRNANames) / 2.0)
-            +
-            CASE
-              WHEN size($miRNANames) % 2 = 0 THEN 1
-              ELSE 0
-            END
-        ELSE 0
-      END                                    AS requiredCount
-    
+        WHEN toUpper($heuristic) = 'MAJORITY'     THEN floor(size($miRNANames) / 2.0 + 1)
+        ELSE 1
+      END                                                      AS requiredCount
+
     WHERE
       (
         toUpper($toolSelection) = 'UNION'
@@ -59,18 +66,19 @@ public interface MiRNARepository extends Neo4jRepository<MiRNA, Long> {
       )
       AND
       foundCount >= requiredCount
-    
+
     RETURN
       gene,
-      foundTools AS tools,
-      pathways
+      foundTools                                               AS tools,
+      pathways,
+      connections
     ORDER BY gene
-    """)
+        """)
     List<GenePredictionDTO> getPredictions(
-            @Param("miRNANames")      List<String> miRNANames,
-            @Param("tools")           List<String> tools,
-            @Param("toolSelection")   String toolSelection,
-            @Param("heuristic")       String heuristic
+            @Param("miRNANames")    List<String> miRNANames,
+            @Param("tools")         List<String> tools,
+            @Param("toolSelection") String       toolSelection,
+            @Param("heuristic")     String       heuristic
     );
 
     @Query("""

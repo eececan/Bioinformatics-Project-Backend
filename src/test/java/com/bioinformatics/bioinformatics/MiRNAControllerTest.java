@@ -1,117 +1,124 @@
-package bioinformatics;
+package com.bioinformatics.bioinformatics;
+
 import com.bioinformatics.bioinformatics.controller.MiRNAController;
+import com.bioinformatics.bioinformatics.model.Connection;
 import com.bioinformatics.bioinformatics.model.Prediction;
-import com.bioinformatics.bioinformatics.model.Prediction.PredictionValues;
 import com.bioinformatics.bioinformatics.model.Search;
 import com.bioinformatics.bioinformatics.service.MiRNAService;
 import com.bioinformatics.bioinformatics.service.PastSearchesService;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Arrays;
-import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+
+@WebMvcTest(MiRNAController.class)
 class MiRNAControllerTest {
 
-    @Mock
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockBean
     private MiRNAService miRNAService;
 
-    @Mock
+    @MockBean
     private PastSearchesService pastSearchesService;
 
-    @InjectMocks
-    private MiRNAController miRNAController;
+    @Nested
+    @DisplayName("GET /api/predictions")
+    class GetPredictions {
 
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-    }
+        @Test
+        @DisplayName("returns 200 OK with properly formatted JSON when all parameters are present")
+        void testGetPredictions_Success() throws Exception {
+            String[] mirnaArray = new String[]{"miR-1", "miR-2"};
+            String[] toolsArray = new String[]{"ToolA", "ToolB"};
+            String toolSelection = "UNION";
+            String heuristic = "MAJORITY";
 
-    @Test
-    void testGetPredictions_NormalInput_ShouldReturnPredictionAndSaveSearch() {
-        // Arrange
-        String[] mirnaNames = {"miR-21", "miR-155"};
-        String[] tools = {"ToolA", "ToolB"};
-        String toolSelection = "UNION";
-        String heuristic = "MAJORITY";
+            Connection c1 = new Connection("ToolA", "0.95", "miR-1");
+            Connection c2 = new Connection("ToolB", "0.80", "miR-2");
 
-        // Create dummy PredictionValues
-        PredictionValues pv1 = new PredictionValues("GeneX", new String[]{"ToolA"}, new String[]{"Pathway1", "Pathway2"});
-        PredictionValues pv2 = new PredictionValues("GeneY", new String[]{"ToolB"}, new String[]{"Pathway3"});
-        PredictionValues[] predictionValuesArray = new PredictionValues[]{pv1, pv2};
+            Prediction.PredictionValues pv1 = new Prediction.PredictionValues(
+                    "GeneX",
+                    new String[]{"ToolA", "ToolB"},
+                    new String[]{"Pathway1", "Pathway2"},
+                    new Connection[]{c1, c2}
+            );
+            Prediction fakePrediction = new Prediction(
+                    mirnaArray,
+                    new Prediction.PredictionValues[]{pv1},
+                    "1 s",
+                    1,
+                    2
+            );
 
-        // Create dummy Prediction
-        Prediction dummyPrediction = new Prediction(mirnaNames, predictionValuesArray, "2025-06-05T12:00:00Z", 2, 3);
+            when(miRNAService.getPredictions(
+                    eq(mirnaArray), eq(toolsArray), eq(toolSelection), eq(heuristic)))
+                    .thenReturn(fakePrediction);
 
-        when(miRNAService.getPredictions(mirnaNames, tools, toolSelection, heuristic)).thenReturn(dummyPrediction);
+            mockMvc.perform(get("/api/predictions")
+                            .param("mirnaNames", mirnaArray)
+                            .param("tools", toolsArray)
+                            .param("toolSelection", toolSelection)
+                            .param("heuristic", heuristic)
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(jsonPath("$.mirna[0]").value("miR-1"))
+                    .andExpect(jsonPath("$.mirna[1]").value("miR-2"))
+                    .andExpect(jsonPath("$.predictions").isArray())
+                    .andExpect(jsonPath("$.predictions.length()").value(1))
+                    .andExpect(jsonPath("$.predictions[0].gene").value("GeneX"))
+                    .andExpect(jsonPath("$.predictions[0].tools[0]").value("ToolA"))
+                    .andExpect(jsonPath("$.predictions[0].tools[1]").value("ToolB"))
+                    .andExpect(jsonPath("$.predictions[0].pathways[0]").value("Pathway1"))
+                    .andExpect(jsonPath("$.predictions[0].pathways[1]").value("Pathway2"))
+                    .andExpect(jsonPath("$.predictions[0].connections[0].tool").value("ToolA"))
+                    .andExpect(jsonPath("$.predictions[0].connections[0].quality").value("0.95"))
+                    .andExpect(jsonPath("$.predictions[0].connections[0].mirna").value("miR-1"))
+                    .andExpect(jsonPath("$.predictions[0].connections[1].tool").value("ToolB"))
+                    .andExpect(jsonPath("$.predictions[0].connections[1].quality").value("0.80"))
+                    .andExpect(jsonPath("$.predictions[0].connections[1].mirna").value("miR-2"))
+                    .andExpect(jsonPath("$.searchTime").value("1 s"))
+                    .andExpect(jsonPath("$.geneCount").value(1))
+                    .andExpect(jsonPath("$.pathwayCount").value(2));
 
-        // Act
-        ResponseEntity<Prediction> response = miRNAController.getPredictions(mirnaNames, tools, toolSelection, heuristic);
+            ArgumentCaptor<Search> searchCaptor = ArgumentCaptor.forClass(Search.class);
+            verify(pastSearchesService, times(1)).saveSearchAsync(searchCaptor.capture());
 
-        // Assert: Response status and body
-        assertNotNull(response, "Response should not be null");
-        assertEquals(200, response.getStatusCodeValue(), "Status code should be 200 OK");
-        Prediction result = response.getBody();
-        assertNotNull(result, "Response body should not be null");
-        assertArrayEquals(mirnaNames, result.getMirna(), "miRNA arrays should match");
-        assertEquals(2, result.getGeneCount(), "Gene count should be 2");
-        assertEquals(3, result.getPathwayCount(), "Pathway count should be 3");
-        assertEquals(2, result.getPredictions().length, "There should be 2 prediction entries");
+            Search capturedSearch = searchCaptor.getValue();
+            assertThat(capturedSearch.getMirnaNames()).containsExactly("miR-1", "miR-2");
+            assertThat(capturedSearch.getTools()).containsExactly("ToolA", "ToolB");
+            assertThat(capturedSearch.getToolSelection()).isEqualTo("UNION");
+            assertThat(capturedSearch.getHeuristic()).isEqualTo("MAJORITY");
 
-        // Assert: pastSearchesService.saveSearchAsync was called with correct Search object
-        ArgumentCaptor<Search> searchCaptor = ArgumentCaptor.forClass(Search.class);
-        verify(pastSearchesService, times(1)).saveSearchAsync(searchCaptor.capture());
-        Search capturedSearch = searchCaptor.getValue();
-        // Verify the Search object's fields
-        List<String> expectedMirnas = Arrays.asList(mirnaNames);
-        List<String> expectedTools = Arrays.asList(tools);
-        assertEquals(new java.util.HashSet<>(expectedMirnas), new java.util.HashSet<>(capturedSearch.getmirnaNames()), "miRNA names in Search should match");
-        assertEquals(new java.util.HashSet<>(expectedTools), new java.util.HashSet<>(capturedSearch.getTools()), "Tools in Search should match");
-        assertEquals(toolSelection, capturedSearch.getToolSelection(), "Tool selection should match");
-        assertEquals(heuristic, capturedSearch.getHeuristic(), "Heuristic should match");
-    }
+            verify(miRNAService, times(1))
+                    .getPredictions(eq(mirnaArray), eq(toolsArray), eq(toolSelection), eq(heuristic));
+        }
 
-    @Test
-    void testGetPredictions_EmptyInput_ShouldReturnEmptyPredictionAndSaveSearch() {
-        // Arrange with empty arrays
-        String[] mirnaNames = {};
-        String[] tools = {};
-        String toolSelection = "INTERSECTION";
-        String heuristic = "INTERSECTION";
+        @Test
+        @DisplayName("returns 400 Bad Request when a required parameter is missing")
+        void testGetPredictions_MissingParameters() throws Exception {
+            mockMvc.perform(get("/api/predictions")
+                            .param("mirnaNames", "miR-1")
+                            .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isBadRequest());
 
-        // Create dummy Prediction for empty input
-        PredictionValues[] predictionValuesArray = new PredictionValues[0];
-        Prediction dummyPrediction = new Prediction(mirnaNames, predictionValuesArray, "2025-06-05T12:00:00Z", 0, 0);
-
-        when(miRNAService.getPredictions(mirnaNames, tools, toolSelection, heuristic)).thenReturn(dummyPrediction);
-
-        // Act
-        ResponseEntity<Prediction> response = miRNAController.getPredictions(mirnaNames, tools, toolSelection, heuristic);
-
-        // Assert: Response and body
-        assertNotNull(response, "Response should not be null");
-        assertEquals(200, response.getStatusCodeValue(), "Status code should be 200 OK");
-        Prediction result = response.getBody();
-        assertNotNull(result, "Response body should not be null");
-        assertEquals(0, result.getGeneCount(), "Gene count should be 0 for empty input");
-        assertEquals(0, result.getPathwayCount(), "Pathway count should be 0 for empty input");
-        assertEquals(0, result.getPredictions().length, "Prediction array should be empty");
-
-        // Assert: pastSearchesService.saveSearchAsync was called
-        ArgumentCaptor<Search> searchCaptor = ArgumentCaptor.forClass(Search.class);
-        verify(pastSearchesService, times(1)).saveSearchAsync(searchCaptor.capture());
-        Search capturedSearch = searchCaptor.getValue();
-        assertTrue(capturedSearch.getmirnaNames().isEmpty(), "miRNA names in Search should be empty");
-        assertTrue(capturedSearch.getTools().isEmpty(), "Tools in Search should be empty");
-        assertEquals(toolSelection, capturedSearch.getToolSelection(), "Tool selection should match");
-        assertEquals(heuristic, capturedSearch.getHeuristic(), "Heuristic should match");
+            verifyNoInteractions(miRNAService);
+            verifyNoInteractions(pastSearchesService);
+        }
     }
 }

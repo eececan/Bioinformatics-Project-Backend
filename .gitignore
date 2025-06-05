@@ -34,3 +34,8 @@ build/
 
 previous_searches.txt
 PredictionLoggerTest.java
+
+pictar_chicken_mm7_filtered_medium_sensitivity.bed
+Predicted_Targets_Info_high_confident.txt
+mmu_MTI_confident.csv
+/rna22_confident/

@@ -1,5 +1,6 @@
 package com.bioinformatics.bioinformatics.service;
 
+import com.bioinformatics.bioinformatics.model.Connection;
 import com.bioinformatics.bioinformatics.model.Prediction;
 import com.bioinformatics.bioinformatics.repository.MiRNARepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,7 +35,7 @@ public class MiRNAService {
         {
             for(var predictionDTO : rawPredictions) {
                 pathwayCount += predictionDTO.pathways().size();
-                predictionValues.add(new Prediction.PredictionValues(predictionDTO.gene(), predictionDTO.tools().toArray(new String[0]), predictionDTO.pathways().toArray(new String[0])));
+                predictionValues.add(new Prediction.PredictionValues(predictionDTO.gene(), predictionDTO.tools().toArray(new String[0]), predictionDTO.pathways().toArray(new String[0]), predictionDTO.connections().toArray(new Connection[0])));
             }
             geneCount = predictionValues.size();
         }
@@ -53,40 +54,32 @@ public class MiRNAService {
         double actualDuration;
         String durationUnit;
 
-        if(durationInNanoSeconds <= 0) {
+        if (durationInNanoSeconds <= 0) {
             return "0 ns";
         }
 
         int exponent = (int) Math.floor(Math.log10(durationInNanoSeconds));
 
-        if(exponent>5)
-        {
+        if (exponent > 5) {
             actualDuration = durationInNanoSeconds / 1000000000d;
             durationUnit = "s";
 
-            if(actualDuration>=60)
-            {
+            if (actualDuration >= 60) {
                 int actualDurationFloor = (int) Math.floor(actualDuration);
-                return actualDurationFloor/60 + " min " + actualDurationFloor%60 + " s";
+                return actualDurationFloor / 60 + " min " + (actualDurationFloor%60 == 0 ? "": actualDurationFloor % 60 + " s");
             }
-        }
-        else if(exponent>2)
-        {
+        } else if (exponent > 2) {
             actualDuration = durationInNanoSeconds / 1000000d;
             durationUnit = "ms";
-        }
-        else if(exponent>0)
-        {
+        } else if (exponent > 0) {
             actualDuration = durationInNanoSeconds / 1000d;
             durationUnit = "μs";
-        }
-        else
-        {
+        } else {
             actualDuration = durationInNanoSeconds;
             durationUnit = "ns";
         }
 
-        return (Math.round(actualDuration * 1000)/1000d) + " " + durationUnit;
+        return (Math.round(actualDuration * 1000) / 1000d) + " " + durationUnit;
     }
 
     public List<Map<String, Object>> getPathwaysByGene(String geneName) {

@@ -15,7 +15,7 @@ public class Search {
         this.heuristic = heuristic;
     }
 
-    public List<String> getmirnaNames() {
+    public List<String> getMirnaNames() {
         return mirnaNames;
     }
 
