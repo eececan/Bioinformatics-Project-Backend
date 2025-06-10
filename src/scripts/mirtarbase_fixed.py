@@ -11,8 +11,7 @@ def run_mirtarbase_import(data_file_path, species_prefix_filter):
     print(f"Processing data file: {data_file_path}")
 
     database_name_display = 'miRTarBase'
-    database_url_official = 'http://mirtarbase.mbc.nctu.edu.tw/'
-    data_source_link_specific = 'http://mirtarbase.mbc.nctu.edu.tw/cache/download/6.1/mmu_MTI.xls' 
+    data_source_link_specific = 'https://cytargetlinker.github.io/pages/linksets/mirtarbase.html' 
     
     create_db_info(database_name_display, database_url_official)
 
