@@ -35,7 +35,7 @@ public interface MiRNARepository extends Neo4jRepository<MiRNA, Long> {
           quality: toString(
             CASE
               WHEN r.experiments IS NOT NULL THEN r.experiments
-              WHEN r.pct_scores IS NOT NULL  THEN r.pct_scores
+              WHEN r.pct_score IS NOT NULL  THEN r.pct_score
               ELSE r.score
             END
           ),
