@@ -4,7 +4,7 @@ import time
 import os   
 from dbhelper import db_connect, create_db_info
 
-species_code = "mmu"  
+species_code = "hsa"  
 KEGG_DB_NAME = "KEGG"
 KEGG_BASE_URL = "https://rest.kegg.jp"
 PROGRESS_FILE = "data/kegg/kegg_analysis_progress.txt" 

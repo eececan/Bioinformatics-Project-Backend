@@ -80,7 +80,7 @@ for gene in genes:
             and gene['embl'] != '':
             session.run("MERGE (n:Target {"
                           "name: '%s',"
-                          "species: 'Mus musculus',"
+                          "species: 'Homo sapiens',"
                           "geneid: '%s',"
                           "ens_code: '%s',"
                           "ncbi_link: '%s'"

@@ -100,7 +100,7 @@ def run_mirtarbase_import(data_file_path, species_prefix_filter):
                             merge_target_params = {
                                 'm_geneid': str(gene_details_from_ncbi.get('id', params_for_cypher['p_standard_target_geneid_match'])),
                                 'm_name': gene_details_from_ncbi.get('name', params_for_cypher['p_target_symbol_tool']),
-                                'm_species': gene_details_from_ncbi.get('species', "Mus musculus"),
+                                'm_species': gene_details_from_ncbi.get('species', "Homo sapiens"),
                                 'm_ens_code': gene_details_from_ncbi.get('embl', ''),
                                 'm_ncbi_link': str(gene_details_from_ncbi.get('id', params_for_cypher['p_standard_target_geneid_match']))
                             }
@@ -120,7 +120,7 @@ def run_mirtarbase_import(data_file_path, species_prefix_filter):
                             minimal_target_params = {
                                 'min_geneid': params_for_cypher['p_standard_target_geneid_match'],
                                 'min_name': params_for_cypher['p_target_symbol_tool'] or params_for_cypher['p_standard_target_geneid_match'],
-                                'min_species': "Mus musculus" 
+                                'min_species': "Homo sapiens" 
                             }
                             session.run("""
                                 MERGE (t:Target {geneid: $min_geneid})
@@ -178,7 +178,7 @@ def run_mirtarbase_import(data_file_path, species_prefix_filter):
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage: python mirtarbase_fixed.py <path_to_mirtarbase_data_file.csv> <species_prefix_for_miRNA (e.g., mmu)>")
+        print("Usage: python mirtarbase_fixed.py <path_to_mirtarbase_data_file.csv> <species_prefix_for_miRNA (e.g., hsa)>")
         sys.exit(1)
     
     mirtarbase_file_arg = sys.argv[1]
