@@ -37,8 +37,8 @@ def store_miRNA(miRNA):
     return False
 
 if len(sys.argv) < 4:
-    print("Usage: %s <mirbase .dat file> <species name, ex. 'Mus musculus'>"
-          " <species prefix, ex. mmu>" % sys.argv[0])
+    print("Usage: %s <mirbase .dat file> <species name, ex. 'Homo sapiens'>"
+          " <species prefix, ex. hsa>" % sys.argv[0])
     exit()
 
 session = db_connect()
