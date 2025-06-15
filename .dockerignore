@@ -1,0 +1,16 @@
+src/
+.gradle/
+.idea/
+.mvn/
+
+*.log
+logs/
+temp/
+tmp/
+
+.DS_Store
+.env
+.git
+.gitignore
+LICENSE
+README.md
