@@ -2,6 +2,7 @@ import sys
 import re
 import os 
 from download import url_request 
+from urllib.parse import quote_plus
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DATA_DIR = os.path.normpath(os.path.join(SCRIPT_DIR, '..', 'data')) 
@@ -28,16 +29,24 @@ def _ensure_dir_exists(file_path):
             return False
     return True
 
+
 def _query_eutils(base_url, params_dict):
     """Helper function to query NCBI E-utils with basic error checking."""
-    query_params = params_dict.copy() 
+    query_params = params_dict.copy()
     if API_KEY:
         query_params['api_key'] = API_KEY
-    
-    param_string = "&".join([f"{k}={v}" for k, v in query_params.items()])
+
+    # URL-encode each parameter value before joining
+    encoded_params = []
+    for k, v in query_params.items():
+        # Ensure 'v' is a string before encoding
+        encoded_value = quote_plus(str(v))
+        encoded_params.append(f"{k}={encoded_value}")
+
+    param_string = "&".join(encoded_params)
     full_url = f"{base_url}?{param_string}"
-    
-    response_text = url_request(full_url, None) 
+
+    response_text = url_request(full_url, None)
     if not response_text:
         print(f"NCBI E-utils query failed or returned empty response for URL: {full_url}")
     return response_text
@@ -265,3 +274,4 @@ def get_gene_by_ens(ensembl_id, species_filter=None):
 
     gene_id_to_fetch = id_list_match[0]
     return _fetch_and_cache_gene_details(gene_id_to_fetch)
+    
