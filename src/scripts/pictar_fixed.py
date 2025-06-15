@@ -34,18 +34,18 @@ def miRNA2accession(pictar_miRNA_name_original, session):
     name_normalized = name_normalized.replace("_", "-")           
 
     processed_name_for_logic = name_normalized
-    if not processed_name_for_logic.startswith("mmu-"):
+    if not processed_name_for_logic.startswith("hsa-"):
         if processed_name_for_logic.startswith("mir-"): 
-            processed_name_for_logic = "mmu-" + processed_name_for_logic
+            processed_name_for_logic = "hsa-" + processed_name_for_logic
         elif processed_name_for_logic.startswith("let-"): 
-            processed_name_for_logic = "mmu-" + processed_name_for_logic
+            processed_name_for_logic = "hsa-" + processed_name_for_logic
         else: 
-            processed_name_for_logic = "mmu-" + processed_name_for_logic
+            processed_name_for_logic = "hsa-" + processed_name_for_logic
     
     search_candidates = []
 
     search_candidates.append(processed_name_for_logic)
-    if original_lc_stripped != processed_name_for_logic and original_lc_stripped.startswith("mmu-"):
+    if original_lc_stripped != processed_name_for_logic and original_lc_stripped.startswith("hsa-"):
         if original_lc_stripped not in search_candidates : 
              search_candidates.insert(0, original_lc_stripped) 
 
@@ -70,7 +70,7 @@ def miRNA2accession(pictar_miRNA_name_original, session):
         
         has_family_letter = False
         if len(temp_name_for_family_check) > 0 and temp_name_for_family_check[-1].isalpha() and \
-           len(temp_name_for_family_check) > len("mmu-mir-X"): 
+           len(temp_name_for_family_check) > len("hsa-mir-X"): 
             has_family_letter = True
 
         if not has_arm:
@@ -183,7 +183,7 @@ def run_pictar_import(pictar_bed_file_path, relation_name_arg_val):
                             if gene_details:
                                 create_target_params = {
                                     'p_name': gene_details.get('name', params_for_cypher['target_refseq_tool']), 
-                                    'p_species': gene_details.get('species', "Mus musculus"), 
+                                    'p_species': gene_details.get('species', "Homo sapiens"), 
                                     'p_geneid': str(gene_details.get('id', params_for_cypher['standard_target_geneid_match'])), 
                                     'p_ens_code': gene_details.get('embl', ''),
                                     'p_ncbi_link': str(gene_details.get('id', params_for_cypher['standard_target_geneid_match']))
@@ -202,7 +202,7 @@ def run_pictar_import(pictar_bed_file_path, relation_name_arg_val):
                                 print(f"❌ Could not fetch details for GeneID {params_for_cypher['standard_target_geneid_match']} (Row {current_row_num_for_log}). Creating minimal Target node.")
                                 session.run("""
                                     MERGE (t:Target {geneid: $standard_target_geneid_match})
-                                    ON CREATE SET t.name = $target_refseq_tool, t.species = 'Mus musculus' 
+                                    ON CREATE SET t.name = $target_refseq_tool, t.species = 'Homo sapiens' 
                                     """, params_for_cypher) 
                         
                         merge_relation_query = f"""
@@ -212,7 +212,6 @@ def run_pictar_import(pictar_bed_file_path, relation_name_arg_val):
                             source_microrna: $pictar_mirna_name_original, 
                             source_target_refseq: $target_refseq_tool 
                             // Adding score to the MERGE key would make each score variant unique
-                            // , score: $tool_score_val 
                         }}]->(gene)
                         ON CREATE SET 
                             r.tool_name = $relation_name_val, 
@@ -264,7 +263,7 @@ def run_pictar_import(pictar_bed_file_path, relation_name_arg_val):
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage: python src/pictar_fixed.py <PicTar_.bed_file_path> <RelationName (e.g., PicTar7 or PicTar13)>")
+        print("Usage: python src/pictar_fixed.py <PicTar_.bed_file_path> <RelationName>")
         sys.exit(1)
 
     pictar_file_arg = sys.argv[1]
