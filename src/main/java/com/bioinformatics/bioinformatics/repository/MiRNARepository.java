@@ -1,12 +1,11 @@
 package com.bioinformatics.bioinformatics.repository;
 
 import com.bioinformatics.bioinformatics.model.GenePredictionDTO;
-import com.bioinformatics.bioinformatics.model.MiRNA; // Keeping the model class name as MiRNA
+import com.bioinformatics.bioinformatics.model.MiRNA;
 import org.springframework.data.neo4j.repository.Neo4jRepository;
 import org.springframework.data.neo4j.repository.query.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-
 import java.util.List;
 import java.util.Map;
 
@@ -90,5 +89,4 @@ public interface MiRNARepository extends Neo4jRepository<MiRNA, Long> {
 
     @Query("MATCH (t:Target) RETURN t.name AS symbol")
     List<String> getAllTargetSymbols();
-
 }

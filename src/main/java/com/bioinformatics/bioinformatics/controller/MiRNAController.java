@@ -1,5 +1,6 @@
 package com.bioinformatics.bioinformatics.controller;
 
+import com.bioinformatics.bioinformatics.model.GraphDataDTO;
 import com.bioinformatics.bioinformatics.model.Prediction;
 import com.bioinformatics.bioinformatics.model.Search;
 import com.bioinformatics.bioinformatics.service.MiRNAService;
@@ -44,5 +45,20 @@ public class MiRNAController {
     @GetMapping("/pathways")
     public ResponseEntity<List<Map<String, Object>>> getPathwaysByGene(@RequestParam("geneName") String geneName) {
         return ResponseEntity.ok(miRNAService.getPathwaysByGene(geneName));
+    }
+
+    @GetMapping("/graph")
+    public ResponseEntity<GraphDataDTO> getGraphData(
+            @RequestParam List<String> miRNANames,
+            @RequestParam(required = false, defaultValue = "") List<String> tools,
+            @RequestParam String toolSelection,
+            @RequestParam String heuristic
+    ) {
+        // Handle case where tools parameter is present but empty
+        if (tools.size() == 1 && tools.get(0).isEmpty()) {
+            tools = Collections.emptyList();
+        }
+        GraphDataDTO graphData = miRNAService.getGraphDataForMiRNAs(miRNANames, tools, toolSelection, heuristic);
+        return ResponseEntity.ok(graphData);
     }
 }
