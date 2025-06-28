@@ -14,27 +14,37 @@ import java.util.*;
 @RestController
 @RequestMapping("/api")
 public class MiRNAController {
+
+    private final MiRNAService miRNAService;
+    private final PastSearchesService pastSearchesService;
+
     @Autowired
-    private MiRNAService miRNAService;
-    @Autowired
-    private PastSearchesService pastSearchesService;
+    public MiRNAController(MiRNAService miRNAService, PastSearchesService pastSearchesService) {
+        this.miRNAService = miRNAService;
+        this.pastSearchesService = pastSearchesService;
+    }
 
     /**
      * @param mirnaNames List of microRNA names to query.
      * @param tools List of tool relationship types to consider.
      * @param toolSelection Strategy to filter predictions based on tools (UNION, INTERSECTION, AT_LEAST_TWO).
      * @param heuristic Heuristic for minimum number of miRNAs predicting a gene (INTERSECTION, MAJORITY).
+     * @param cutoffs A map of tool-specific filters (e.g., "PicTar" -> "> 300").
      * @return A list of gene predictions including gene name, tools that predicted it, and related pathways.
      */
+
     @GetMapping("/predictions")
     public ResponseEntity<Prediction> getPredictions(
             @RequestParam("mirnaNames") String[] mirnaNames,
             @RequestParam("tools") String[] tools,
             @RequestParam("toolSelection") String toolSelection,
-            @RequestParam("heuristic") String heuristic) {
+            @RequestParam("heuristic") String heuristic,
+            @RequestParam(required = false) Map<String, String> cutoffs) {
 
-        pastSearchesService.saveSearchAsync(new Search(mirnaNames, tools, toolSelection, heuristic));
-        return ResponseEntity.ok(miRNAService.getPredictions(mirnaNames, tools, toolSelection, heuristic));
+        pastSearchesService.saveSearchAsync(new Search(mirnaNames, tools, toolSelection, heuristic, cutoffs));
+
+        Prediction predictions = miRNAService.getPredictions(mirnaNames, tools, toolSelection, heuristic, cutoffs);
+        return ResponseEntity.ok(predictions);
     }
 
     @GetMapping("/pastSearches")
@@ -52,13 +62,14 @@ public class MiRNAController {
             @RequestParam List<String> miRNANames,
             @RequestParam(required = false, defaultValue = "") List<String> tools,
             @RequestParam String toolSelection,
-            @RequestParam String heuristic
+            @RequestParam String heuristic,
+            @RequestParam(required = false) Map<String, String> cutoffs
     ) {
-        // Handle case where tools parameter is present but empty
         if (tools.size() == 1 && tools.get(0).isEmpty()) {
             tools = Collections.emptyList();
         }
-        GraphDataDTO graphData = miRNAService.getGraphDataForMiRNAs(miRNANames, tools, toolSelection, heuristic);
+
+        GraphDataDTO graphData = miRNAService.getGraphDataForMiRNAs(miRNANames, tools, toolSelection, heuristic, cutoffs);
         return ResponseEntity.ok(graphData);
     }
 }

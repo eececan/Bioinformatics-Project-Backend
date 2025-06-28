@@ -6,6 +6,7 @@ import org.springframework.data.neo4j.repository.Neo4jRepository;
 import org.springframework.data.neo4j.repository.query.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.lang.Nullable;
 import java.util.List;
 import java.util.Map;
 
@@ -18,7 +19,16 @@ public interface MiRNARepository extends Neo4jRepository<MiRNA, Long> {
     WHERE m.name IN $miRNANames
 
     MATCH (m)-[r]->(t:Target)
-    WHERE type(r) IN $tools
+    WHERE
+      type(r) IN $tools
+
+      AND (
+        (type(r) = 'miRTarBase' AND ($mirtarbaseFilter IS NULL OR toLower(r.experiments) CONTAINS toLower($mirtarbaseFilter))) OR
+        (type(r) = 'TarBase'    AND ($tarbaseCutoff IS NULL OR r.score > $tarbaseCutoff)) OR
+        (type(r) = 'PicTar'     AND ($pictarCutoff IS NULL OR r.score > $pictarCutoff)) OR
+        (type(r) = 'TargetScan' AND ($targetscanCutoff IS NULL OR r.pct_score > $targetscanCutoff)) OR
+        (NOT type(r) IN ['miRTarBase', 'TarBase', 'PicTar', 'TargetScan'])
+      )
 
     OPTIONAL MATCH (t)-[:PART_OF_PATHWAY]->(p:Pathway)
 
@@ -42,7 +52,7 @@ public interface MiRNARepository extends Neo4jRepository<MiRNA, Long> {
         }
       )                                                        AS connections,
       collect(DISTINCT m.name)                                 AS mirnasWithPrediction
-
+    
     WITH
       gene,
       foundTools,
@@ -75,10 +85,16 @@ public interface MiRNARepository extends Neo4jRepository<MiRNA, Long> {
     ORDER BY gene
     """)
     List<GenePredictionDTO> getPredictions(
+            // Original parameters
             @Param("miRNANames")    List<String> miRNANames,
             @Param("tools")         List<String> tools,
             @Param("toolSelection") String       toolSelection,
-            @Param("heuristic")     String       heuristic
+            @Param("heuristic")     String       heuristic,
+
+            @Param("mirtarbaseFilter") @Nullable String mirtarbaseFilter,
+            @Param("tarbaseCutoff")    @Nullable Double tarbaseCutoff,
+            @Param("pictarCutoff")     @Nullable Double pictarCutoff,
+            @Param("targetscanCutoff") @Nullable Double targetscanCutoff
     );
 
     @Query("""

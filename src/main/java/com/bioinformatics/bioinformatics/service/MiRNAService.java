@@ -1,6 +1,7 @@
 package com.bioinformatics.bioinformatics.service;
 
 import com.bioinformatics.bioinformatics.model.Connection;
+import com.bioinformatics.bioinformatics.model.GenePredictionDTO; // Assuming this is your DTO name
 import com.bioinformatics.bioinformatics.model.Prediction;
 import com.bioinformatics.bioinformatics.repository.MiRNARepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,38 +18,44 @@ import java.util.stream.Collectors;
 @Service
 public class MiRNAService {
 
-    @Autowired
     private final Neo4jClient neo4jClient;
-
-    @Autowired
     private final MiRNARepository miRNARepository;
 
+    @Autowired
     public MiRNAService(Neo4jClient neo4jClient, MiRNARepository miRNARepository) {
         this.neo4jClient = neo4jClient;
         this.miRNARepository = miRNARepository;
     }
 
-    public Prediction getPredictions(String[] mirnaNames, String[] tools, String toolSelection, String heuristic) {
+    public Prediction getPredictions(String[] mirnaNames, String[] tools, String toolSelection, String heuristic, Map<String, String> cutoffs) {
 
         long startTime = System.nanoTime();
-        var rawPredictions = miRNARepository.getPredictions(
+
+        String mirtarbaseFilter = (cutoffs != null) ? cutoffs.get("cutoffs[miRTarBase]") : null;
+        Double tarbaseCutoff = (cutoffs != null) ? parseNumericCutoff(cutoffs.get("cutoffs[TarBase]")) : null;
+        Double pictarCutoff = (cutoffs != null) ? parseNumericCutoff(cutoffs.get("cutoffs[PicTar]")) : null;
+        Double targetscanCutoff = (cutoffs != null) ? parseNumericCutoff(cutoffs.get("cutoffs[TargetScan]")) : null;
+
+        List<GenePredictionDTO> rawPredictions = miRNARepository.getPredictions(
                 List.of(mirnaNames),
                 List.of(tools),
                 toolSelection,
-                heuristic);
+                heuristic,
+                mirtarbaseFilter,
+                tarbaseCutoff,
+                pictarCutoff,
+                targetscanCutoff
+        );
 
         int geneCount;
         int pathwayCount = 0;
 
         ArrayList<Prediction.PredictionValues> predictionValues = new ArrayList<>();
-        if(rawPredictions==null || rawPredictions.isEmpty())
-        {
+        if (rawPredictions == null || rawPredictions.isEmpty()) {
             predictionValues = new ArrayList<>();
             geneCount = 0;
-        }
-        else
-        {
-            for(var predictionDTO : rawPredictions) {
+        } else {
+            for (var predictionDTO : rawPredictions) {
                 pathwayCount += predictionDTO.pathways().size();
                 predictionValues.add(new Prediction.PredictionValues(predictionDTO.gene(), predictionDTO.tools().toArray(new String[0]), predictionDTO.pathways().toArray(new String[0]), predictionDTO.connections().toArray(new Connection[0])));
             }
@@ -56,59 +63,47 @@ public class MiRNAService {
         }
 
         long durationInNanoSeconds = (System.nanoTime() - startTime);
-
         Prediction prediction = new Prediction(mirnaNames, predictionValues.toArray(Prediction.PredictionValues[]::new),
                 durationToString(durationInNanoSeconds), geneCount, pathwayCount);
 
-        System.out.println(prediction.getSearchTime());
-
+        System.out.println("Search Time: " + prediction.getSearchTime());
         return prediction;
     }
 
-    private String durationToString(long durationInNanoSeconds) {
-        double actualDuration;
-        String durationUnit;
-
-        if (durationInNanoSeconds <= 0) {
-            return "0 ns";
+    private Double parseNumericCutoff(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
         }
-
-        int exponent = (int) Math.floor(Math.log10(durationInNanoSeconds));
-
-        if (exponent > 5) {
-            actualDuration = durationInNanoSeconds / 1000000000d;
-            durationUnit = "s";
-
-            if (actualDuration >= 60) {
-                int actualDurationFloor = (int) Math.floor(actualDuration);
-                return actualDurationFloor / 60 + " min " + (actualDurationFloor%60 == 0 ? "": actualDurationFloor % 60 + " s");
-            }
-        } else if (exponent > 2) {
-            actualDuration = durationInNanoSeconds / 1000000d;
-            durationUnit = "ms";
-        } else if (exponent > 0) {
-            actualDuration = durationInNanoSeconds / 1000d;
-            durationUnit = "μs";
-        } else {
-            actualDuration = durationInNanoSeconds;
-            durationUnit = "ns";
+        try {
+            String numericPart = value.replaceAll("[^\\d.-]", "");
+            if (numericPart.isEmpty()) return null;
+            return Double.parseDouble(numericPart);
+        } catch (NumberFormatException e) {
+            System.err.println("Could not parse numeric cutoff: " + value);
+            return null;
         }
-
-        return (Math.round(actualDuration * 1000) / 1000d) + " " + durationUnit;
     }
 
     public List<Map<String, Object>> getPathwaysByGene(String geneName) {
         return miRNARepository.findPathwaysByGeneName(geneName);
     }
 
-    public GraphDataDTO getGraphDataForMiRNAs(List<String> miRNANames, List<String> tools, String toolSelection, String heuristic) {
+    public GraphDataDTO getGraphDataForMiRNAs(List<String> miRNANames, List<String> tools, String toolSelection, String heuristic, Map<String, String> cutoffs) {
 
         String cypherQuery = """
             MATCH (m:microRNA)
             WHERE m.name IN $miRNANames
             
             MATCH (m)-[r]->(t:Target)
-            WHERE size($tools) = 0 OR type(r) IN $tools
+            WHERE
+              type(r) IN $tools
+              AND (
+                (type(r) = 'miRTarBase' AND ($mirtarbaseFilter IS NULL OR toLower(r.experiments) CONTAINS toLower($mirtarbaseFilter))) OR
+                (type(r) = 'TarBase'    AND ($tarbaseCutoff IS NULL OR r.score > $tarbaseCutoff)) OR
+                (type(r) = 'PicTar'     AND ($pictarCutoff IS NULL OR r.score > $pictarCutoff)) OR
+                (type(r) = 'TargetScan' AND ($targetscanCutoff IS NULL OR r.pct_score > $targetscanCutoff)) OR
+                (NOT type(r) IN ['miRTarBase', 'TarBase', 'PicTar', 'TargetScan'])
+              )
             
             OPTIONAL MATCH (t)-[:PART_OF_PATHWAY]->(p:Pathway)
 
@@ -144,22 +139,32 @@ public class MiRNAService {
             RETURN t, pathways, connections, predictingMiRNAs
             """;
 
+        // 1. Parse the cutoff values from the map
+        String mirtarbaseFilter = (cutoffs != null) ? cutoffs.get("cutoffs[miRTarBase]") : null;
+        Double tarbaseCutoff = (cutoffs != null) ? parseNumericCutoff(cutoffs.get("cutoffs[TarBase]")) : null;
+        Double pictarCutoff = (cutoffs != null) ? parseNumericCutoff(cutoffs.get("cutoffs[PicTar]")) : null;
+        Double targetscanCutoff = (cutoffs != null) ? parseNumericCutoff(cutoffs.get("cutoffs[TargetScan]")) : null;
+
+        // 2. Bind all parameters, including the new filters
         Collection<Map<String, Object>> results = neo4jClient.query(cypherQuery)
                 .bind(miRNANames).to("miRNANames")
                 .bind(tools).to("tools")
                 .bind(toolSelection).to("toolSelection")
                 .bind(heuristic).to("heuristic")
+                // --- NEW PARAMETER BINDING ---
+                .bind(mirtarbaseFilter).to("mirtarbaseFilter")
+                .bind(tarbaseCutoff).to("tarbaseCutoff")
+                .bind(pictarCutoff).to("pictarCutoff")
+                .bind(targetscanCutoff).to("targetscanCutoff")
                 .fetch().all();
 
+        // --- The rest of your graph building logic remains the same ---
         Map<String, GraphNodeDTO> nodesMap = new HashMap<>();
         Map<String, GraphEdgeDTO> edgesMap = new HashMap<>();
 
+        // (Your existing for-loop to build the graph data...)
         for (Map<String, Object> row : results) {
-            // --- THE FINAL, FINAL FIX ---
-            // The map contains the direct types. Cast them directly.
             Node targetNode = (Node) row.get("t");
-
-            // The framework converts collections to standard Java Lists.
             @SuppressWarnings("unchecked")
             List<Node> pathwayNodes = (List<Node>) row.get("pathways");
             @SuppressWarnings("unchecked")
@@ -167,7 +172,6 @@ public class MiRNAService {
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> connections = (List<Map<String, Object>>) row.get("connections");
 
-            // The rest of the logic remains unchanged.
             if (!nodesMap.containsKey(targetNode.elementId())) {
                 nodesMap.put(targetNode.elementId(), new GraphNodeDTO(
                         targetNode.elementId(),
@@ -178,7 +182,7 @@ public class MiRNAService {
             }
 
             for (Node mirnaNode : mirnaNodes) {
-                if (mirnaNode == null) continue; // Safety check
+                if (mirnaNode == null) continue;
                 if (!nodesMap.containsKey(mirnaNode.elementId())) {
                     nodesMap.put(mirnaNode.elementId(), new GraphNodeDTO(
                             mirnaNode.elementId(),
@@ -205,7 +209,7 @@ public class MiRNAService {
             }
 
             for (Node pathwayNode : pathwayNodes) {
-                if (pathwayNode == null) continue; // Safety check
+                if (pathwayNode == null) continue;
                 if (!nodesMap.containsKey(pathwayNode.elementId())) {
                     nodesMap.put(pathwayNode.elementId(), new GraphNodeDTO(
                             pathwayNode.elementId(),
@@ -229,5 +233,36 @@ public class MiRNAService {
         return new GraphDataDTO(new ArrayList<>(nodesMap.values()), new ArrayList<>(edgesMap.values()));
     }
 
-}
+    private String durationToString(long durationInNanoSeconds) {
+        // ... your existing helper method is fine
+        double actualDuration;
+        String durationUnit;
 
+        if (durationInNanoSeconds <= 0) {
+            return "0 ns";
+        }
+
+        int exponent = (int) Math.floor(Math.log10(durationInNanoSeconds));
+
+        if (exponent > 5) {
+            actualDuration = durationInNanoSeconds / 1000000000d;
+            durationUnit = "s";
+
+            if (actualDuration >= 60) {
+                int actualDurationFloor = (int) Math.floor(actualDuration);
+                return actualDurationFloor / 60 + " min " + (actualDurationFloor%60 == 0 ? "": actualDurationFloor % 60 + " s");
+            }
+        } else if (exponent > 2) {
+            actualDuration = durationInNanoSeconds / 1000000d;
+            durationUnit = "ms";
+        } else if (exponent > 0) {
+            actualDuration = durationInNanoSeconds / 1000d;
+            durationUnit = "μs";
+        } else {
+            actualDuration = durationInNanoSeconds;
+            durationUnit = "ns";
+        }
+
+        return (Math.round(actualDuration * 1000) / 1000d) + " " + durationUnit;
+    }
+}
