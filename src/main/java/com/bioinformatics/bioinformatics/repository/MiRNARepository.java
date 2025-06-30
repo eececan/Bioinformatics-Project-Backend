@@ -15,74 +15,64 @@ public interface MiRNARepository extends Neo4jRepository<MiRNA, Long> {
     List<MiRNA> findByName(String name);
 
     @Query("""
-    MATCH (m:microRNA)
+            MATCH (m:microRNA)
     WHERE m.name IN $miRNANames
 
     MATCH (m)-[r]->(t:Target)
     WHERE
-      type(r) IN $tools
-
-      AND (
-        (type(r) = 'miRTarBase' AND ($mirtarbaseFilter IS NULL OR toLower(r.experiments) CONTAINS toLower($mirtarbaseFilter))) OR
-        (type(r) = 'TarBase'    AND ($tarbaseCutoff IS NULL OR r.score > $tarbaseCutoff)) OR
-        (type(r) = 'PicTar'     AND ($pictarCutoff IS NULL OR r.score > $pictarCutoff)) OR
-        (type(r) = 'TargetScan' AND ($targetscanCutoff IS NULL OR r.pct_score > $targetscanCutoff)) OR
-        (NOT type(r) IN ['miRTarBase', 'TarBase', 'PicTar', 'TargetScan'])
-      )
+    type(r) IN $tools
+    AND (
+      (type(r) = 'miRTarBase' AND ($mirtarbaseFilter IS NULL OR toLower(r.experiments) CONTAINS toLower($mirtarbaseFilter))) OR
+            (type(r) = 'TarBase'    AND ($tarbaseCutoff IS NULL OR r.score > $tarbaseCutoff)) OR
+            (type(r) = 'PicTar'     AND ($pictarCutoff IS NULL OR r.score > $pictarCutoff)) OR
+            (type(r) = 'TargetScan' AND ($targetscanCutoff IS NULL OR r.pct_score > $targetscanCutoff)) OR
+            (NOT type(r) IN ['miRTarBase', 'TarBase', 'PicTar', 'TargetScan'])
+            )
 
     OPTIONAL MATCH (t)-[:PART_OF_PATHWAY]->(p:Pathway)
 
     WITH
-      t,
-      t.name AS gene,
-      collect(DISTINCT type(r))                                AS foundTools,
-      collect(DISTINCT p.name)                                 AS pathways,
-      collect(
-        DISTINCT
-        {
-          tool: type(r),
-          quality: toString(
-            CASE
-              WHEN r.experiments IS NOT NULL THEN r.experiments
-              WHEN r.pct_score IS NOT NULL  THEN r.pct_score
-              ELSE r.score
-            END
-          ),
-          mirna: m.name
-        }
-      )                                                        AS connections,
-      collect(DISTINCT m.name)                                 AS mirnasWithPrediction
-    
+    t.name AS geneName,
+    COLLECT(DISTINCT type(r)) AS foundTools,
+    COLLECT(DISTINCT p.name) AS pathwayNames,
+    COLLECT(DISTINCT {
+        tool: type(r),
+                quality: CASE
+        WHEN r.experiments IS NOT NULL THEN toString(r.experiments)
+                WHEN r.pct_score IS NOT NULL THEN toString(r.pct_score)
+                ELSE toString(r.score)
+        END,
+                mirna: m.name
+    }) AS connections,
+    COLLECT(DISTINCT m.name) AS predictingMiRNANames
+
     WITH
-      gene,
-      foundTools,
-      [path IN pathways WHERE path IS NOT NULL]                AS pathways,
-      connections,
-      mirnasWithPrediction,
-      size(mirnasWithPrediction)                               AS foundCount,
-      CASE
-        WHEN toUpper($heuristic) = 'INTERSECTION' THEN size($miRNANames)
-        WHEN toUpper($heuristic) = 'MAJORITY'     THEN floor(size($miRNANames) / 2.0 + 1)
-        ELSE 1
-      END                                                      AS requiredCount
+            geneName,
+            foundTools,
+            pathwayNames,
+            connections,
+    SIZE(predictingMiRNANames) AS foundCount,
+    CASE
+    WHEN toUpper($heuristic) = 'INTERSECTION' THEN SIZE($miRNANames)
+    WHEN toUpper($heuristic) = 'MAJORITY' THEN FLOOR(SIZE($miRNANames)/2.0 + 1)
+    ELSE 1
+    END AS requiredCount,
+    $toolSelection AS toolSelection,
+    $tools as tools
 
     WHERE
-      (
-        toUpper($toolSelection) = 'UNION'
-        OR
-        (toUpper($toolSelection) = 'INTERSECTION' AND size(foundTools) = size($tools))
-        OR
-        (toUpper($toolSelection) = 'AT_LEAST_TWO' AND size(foundTools) >= 2)
-      )
-      AND
-      foundCount >= requiredCount
+            (
+                    toUpper(toolSelection) = 'UNION'
+    OR (toUpper(toolSelection) = 'INTERSECTION' AND size(foundTools) = size(tools))
+    OR (toUpper(toolSelection) = 'AT_LEAST_TWO' AND size(foundTools) >= 2)
+            )
+    AND foundCount >= requiredCount
 
-    RETURN
-      gene,
-      foundTools                                               AS tools,
-      pathways,
-      connections
-    ORDER BY gene
+            RETURN
+    geneName AS gene,
+    foundTools AS tools,
+    pathwayNames AS pathways,
+    connections
     """)
     List<GenePredictionDTO> getPredictions(
             // Original parameters

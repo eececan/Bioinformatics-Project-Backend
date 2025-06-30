@@ -90,79 +90,86 @@ public class MiRNAService {
 
     public GraphDataDTO getGraphDataForMiRNAs(List<String> miRNANames, List<String> tools, String toolSelection, String heuristic, Map<String, String> cutoffs) {
 
-        String cypherQuery = """
-            MATCH (m:microRNA)
-            WHERE m.name IN $miRNANames
-            
-            MATCH (m)-[r]->(t:Target)
-            WHERE
-              type(r) IN $tools
-              AND (
-                (type(r) = 'miRTarBase' AND ($mirtarbaseFilter IS NULL OR toLower(r.experiments) CONTAINS toLower($mirtarbaseFilter))) OR
-                (type(r) = 'TarBase'    AND ($tarbaseCutoff IS NULL OR r.score > $tarbaseCutoff)) OR
-                (type(r) = 'PicTar'     AND ($pictarCutoff IS NULL OR r.score > $pictarCutoff)) OR
-                (type(r) = 'TargetScan' AND ($targetscanCutoff IS NULL OR r.pct_score > $targetscanCutoff)) OR
-                (NOT type(r) IN ['miRTarBase', 'TarBase', 'PicTar', 'TargetScan'])
-              )
-            
-            OPTIONAL MATCH (t)-[:PART_OF_PATHWAY]->(p:Pathway)
+        String cypherQuery = """ 
+    MATCH (m:microRNA)
+    WHERE m.name IN $miRNANames
 
-            WITH
-              t,
-              COLLECT(DISTINCT type(r)) AS foundTools,
-              COLLECT(DISTINCT p) AS pathways,
-              COLLECT(DISTINCT {
-                tool: type(r),
+    MATCH (m)-[r]->(t:Target)
+    WHERE
+    type(r) IN $tools
+    AND (
+    (type(r) = 'miRTarBase' AND ($mirtarbaseFilter IS NULL OR toLower(r.experiments) CONTAINS toLower($mirtarbaseFilter))) OR
+            (type(r) = 'TarBase'    AND ($tarbaseCutoff IS NULL OR r.score > $tarbaseCutoff)) OR
+            (type(r) = 'PicTar'     AND ($pictarCutoff IS NULL OR r.score > $pictarCutoff)) OR
+            (type(r) = 'TargetScan' AND ($targetscanCutoff IS NULL OR r.pct_score > $targetscanCutoff)) OR
+            (NOT type(r) IN ['miRTarBase', 'TarBase', 'PicTar', 'TargetScan'])
+            )
+
+    OPTIONAL MATCH (t)-[:PART_OF_PATHWAY]->(p:Pathway)
+
+    WITH
+    toLower(t.name) AS targetName,
+
+    COLLECT(DISTINCT type(r)) AS foundTools,
+    COLLECT(DISTINCT p) AS pathways,
+    COLLECT(DISTINCT {
+        tool: type(r),
                 quality: CASE
-                  WHEN r.experiments IS NOT NULL THEN toString(r.experiments)
-                  WHEN r.pct_score IS NOT NULL THEN toString(r.pct_score)
-                  ELSE toString(r.score)
-                END,
+        WHEN r.experiments IS NOT NULL THEN toString(r.experiments)
+                WHEN r.pct_score IS NOT NULL THEN toString(r.pct_score)
+                ELSE toString(r.score)
+        END,
                 mirna: m.name
-              }) AS connections,
-              COLLECT(DISTINCT m) AS predictingMiRNAs,
-              SIZE(COLLECT(DISTINCT m)) AS foundCount,
-              CASE
-                WHEN toUpper($heuristic) = 'INTERSECTION' THEN SIZE($miRNANames)
-                WHEN toUpper($heuristic) = 'MAJORITY' THEN FLOOR(SIZE($miRNANames)/2.0 + 1)
-                ELSE 1
-              END AS requiredCount
+    }) AS connections,
+    COLLECT(DISTINCT m) AS predictingMiRNAs,
 
-            WHERE
-              (
-                toUpper($toolSelection) = 'UNION'
-                OR (toUpper($toolSelection) = 'INTERSECTION' AND size(foundTools) = size($tools))
-                OR (toUpper($toolSelection) = 'AT_LEAST_TWO' AND size(foundTools) >= 2)
-              )
-              AND foundCount >= requiredCount
+    HEAD(COLLECT(DISTINCT t)) AS t_node
 
-            RETURN t, pathways, connections, predictingMiRNAs
-            """;
+    WITH
+            t_node,
+            pathways,
+            connections,
+            predictingMiRNAs,
+            foundTools,
+    SIZE(predictingMiRNAs) AS foundCount,
+    CASE
+    WHEN toUpper($heuristic) = 'INTERSECTION' THEN SIZE($miRNANames)
+    WHEN toUpper($heuristic) = 'MAJORITY' THEN FLOOR(SIZE($miRNANames)/2.0 + 1)
+    ELSE 1
+    END AS requiredCount,
+    $toolSelection AS toolSelection,
+    $tools as tools
 
-        // 1. Parse the cutoff values from the map
+    WHERE
+            (
+                    toUpper(toolSelection) = 'UNION'
+    OR (toUpper(toolSelection) = 'INTERSECTION' AND size(foundTools) = size(tools))
+    OR (toUpper(toolSelection) = 'AT_LEAST_TWO' AND size(foundTools) >= 2)
+            )
+    AND foundCount >= requiredCount
+
+    RETURN t_node AS t, pathways, connections, predictingMiRNAs
+    """;
+
         String mirtarbaseFilter = (cutoffs != null) ? cutoffs.get("cutoffs[miRTarBase]") : null;
         Double tarbaseCutoff = (cutoffs != null) ? parseNumericCutoff(cutoffs.get("cutoffs[TarBase]")) : null;
         Double pictarCutoff = (cutoffs != null) ? parseNumericCutoff(cutoffs.get("cutoffs[PicTar]")) : null;
         Double targetscanCutoff = (cutoffs != null) ? parseNumericCutoff(cutoffs.get("cutoffs[TargetScan]")) : null;
 
-        // 2. Bind all parameters, including the new filters
         Collection<Map<String, Object>> results = neo4jClient.query(cypherQuery)
                 .bind(miRNANames).to("miRNANames")
                 .bind(tools).to("tools")
                 .bind(toolSelection).to("toolSelection")
                 .bind(heuristic).to("heuristic")
-                // --- NEW PARAMETER BINDING ---
                 .bind(mirtarbaseFilter).to("mirtarbaseFilter")
                 .bind(tarbaseCutoff).to("tarbaseCutoff")
                 .bind(pictarCutoff).to("pictarCutoff")
                 .bind(targetscanCutoff).to("targetscanCutoff")
                 .fetch().all();
 
-        // --- The rest of your graph building logic remains the same ---
         Map<String, GraphNodeDTO> nodesMap = new HashMap<>();
         Map<String, GraphEdgeDTO> edgesMap = new HashMap<>();
 
-        // (Your existing for-loop to build the graph data...)
         for (Map<String, Object> row : results) {
             Node targetNode = (Node) row.get("t");
             @SuppressWarnings("unchecked")
@@ -234,7 +241,6 @@ public class MiRNAService {
     }
 
     private String durationToString(long durationInNanoSeconds) {
-        // ... your existing helper method is fine
         double actualDuration;
         String durationUnit;
 
